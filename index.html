@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Shadow Weaver Strategy Documentation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta
+    name="description"
+    content="Technical documentation for the Shadow Weaver yield strategy built on Solana and Drift Protocol."
+  />
+  <style>
+    /* ==========================================================================
+       ESTÉTICA BRUTALISTA / SMILING FRIENDS + SOLANA THEME
+       ========================================================================== */
+    :root {
+      /* Cores Nativas Solana */
+      --sol-green: #14F195;
+      --sol-purple: #9945FF;
+      --sol-dark: #0a0a0a;
+      
+      /* Smiling Friends / Brutalist Setup */
+      --bg: #111111;
+      --border-thick: 3px solid #000000;
+      --shadow-brutal: 6px 6px 0px 0px #000000;
+      --shadow-brutal-hover: 2px 2px 0px 0px #000000;
+      
+      /* Tipografia e Textos */
+      --text-primary: #f9fafb;
+      --text-muted: #d1d5db;
+      --text-soft: #9ca3af;
+      --danger: #ff3366;
+      --code-bg: #1e1e1e;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background-color: var(--sol-dark);
+      /* Fundo com leve textura para não ficar um preto vazio */
+      background-image: radial-gradient(circle at top right, rgba(153, 69, 255, 0.15) 0%, transparent 40%),
+                        radial-gradient(circle at bottom left, rgba(20, 241, 149, 0.1) 0%, transparent 40%);
+      background-attachment: fixed;
+      color: var(--text-primary);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      display: flex;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    a {
+      color: var(--sol-green);
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    a:hover {
+      text-decoration: underline;
+      color: var(--sol-purple);
+    }
+
+    /* ==========================================================================
+       MOBILE HEADER (Oculto no Desktop)
+       ========================================================================== */
+    .mobile-header {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 60px;
+      background: var(--sol-purple);
+      border-bottom: var(--border-thick);
+      z-index: 999;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+    }
+
+    .mobile-logo-text {
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #000;
+    }
+
+    .menu-toggle {
+      background: var(--sol-green);
+      border: 2px solid #000;
+      box-shadow: 3px 3px 0px 0px #000;
+      padding: 8px 12px;
+      font-weight: 900;
+      cursor: pointer;
+      color: #000;
+      text-transform: uppercase;
+      transition: all 0.1s;
+    }
+
+    .menu-toggle:active {
+      transform: translate(3px, 3px);
+      box-shadow: 0px 0px 0px 0px #000;
+    }
+
+    /* Overlay escuro para quando o menu abrir no mobile */
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 998;
+    }
+    .sidebar-overlay.active {
+      display: block;
+    }
+
+    /* ==========================================================================
+       SIDEBAR BRUTALISTA
+       ========================================================================== */
+    .sidebar {
+      width: 280px;
+      border-right: var(--border-thick);
+      background: #1a1a1a;
+      padding: 24px 20px;
+      position: sticky;
+      top: 0;
+      align-self: flex-start;
+      height: 100vh;
+      overflow-y: auto;
+      z-index: 1000;
+      transition: transform 0.3s ease-in-out;
+    }
+
+    /* Estilização da barra de rolagem da sidebar */
+    .sidebar::-webkit-scrollbar {
+      width: 8px;
+    }
+    .sidebar::-webkit-scrollbar-track {
+      background: #000;
+    }
+    .sidebar::-webkit-scrollbar-thumb {
+      background: var(--sol-purple);
+      border: 1px solid #000;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      background: #000;
+      padding: 10px;
+      border: 2px solid var(--sol-green);
+      box-shadow: 4px 4px 0px 0px var(--sol-purple);
+    }
+
+    .logo-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 4px; /* Mais quadrado, menos corporativo */
+      background: linear-gradient(45deg, var(--sol-green), var(--sol-purple));
+      border: 2px solid #fff;
+    }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .logo-text-title {
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      font-size: 14px;
+      text-transform: uppercase;
+      color: #fff;
+    }
+
+    .logo-text-sub {
+      font-size: 11px;
+      color: var(--sol-green);
+      font-weight: bold;
+    }
+
+    .sidebar-section-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-weight: 900;
+      color: var(--sol-purple);
+      margin: 24px 0 10px;
+      border-bottom: 2px solid #333;
+      padding-bottom: 4px;
+    }
+
+    .nav-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      font-size: 14px;
+    }
+
+    .nav-list li {
+      margin-bottom: 8px;
+    }
+
+    .nav-link {
+      display: block;
+      padding: 8px 12px;
+      background: #000;
+      border: 2px solid #333;
+      color: var(--text-muted);
+      font-weight: bold;
+      transition: all 0.1s ease;
+    }
+
+    .nav-link:hover, .nav-link-strong {
+      background: var(--sol-green);
+      border-color: #000;
+      color: #000;
+      box-shadow: 4px 4px 0px 0px var(--sol-purple);
+      text-decoration: none;
+      transform: translate(-2px, -2px);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      padding: 6px 10px;
+      background: #000;
+      border: 2px solid var(--sol-green);
+      color: var(--sol-green);
+      margin-bottom: 12px;
+      box-shadow: 2px 2px 0px 0px #000;
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--sol-green);
+      border: 1px solid #000;
+    }
+
+    .badge-danger {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .badge-danger .badge-dot {
+      background: var(--danger);
+    }
+
+    .sidebar-footer {
+      margin-top: 32px;
+      padding-top: 16px;
+      border-top: var(--border-thick);
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--text-soft);
+      line-height: 1.5;
+    }
+
+    /* ==========================================================================
+       CONTEÚDO PRINCIPAL (Main Content)
+       ========================================================================== */
+    .content {
+      flex: 1;
+      padding: 40px 60px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    /* Hero Section Brutalista */
+    .hero {
+      padding: 30px;
+      margin-bottom: 40px;
+      background: var(--sol-purple);
+      border: var(--border-thick);
+      box-shadow: var(--shadow-brutal);
+      color: #000; /* Texto preto para alto contraste no roxo */
+    }
+
+    .hero-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 20px;
+      align-items: flex-start;
+    }
+
+    .hero-title {
+      font-size: 32px;
+      font-weight: 900;
+      text-transform: uppercase;
+      margin: 0 0 8px;
+      line-height: 1.1;
+      text-shadow: 2px 2px 0px var(--sol-green);
+    }
+
+    .hero-subtitle {
+      font-size: 15px;
+      font-weight: bold;
+      max-width: 600px;
+      color: #111;
+      margin: 0;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 12px;
+      background: #000;
+      color: #fff;
+      padding: 12px;
+      border: 2px solid #000;
+      font-weight: bold;
+    }
+
+    .hero-meta strong {
+      color: var(--sol-green);
+    }
+
+    .hero-highlight {
+      font-size: 14px;
+      font-weight: 600;
+      background: #000;
+      color: #fff;
+      padding: 16px;
+      border: 2px solid #000;
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .hero-highlight strong {
+      color: var(--sol-green);
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    /* Tipografia de Conteúdo */
+    h2 {
+      font-size: 24px;
+      margin: 40px 0 16px;
+      font-weight: 900;
+      text-transform: uppercase;
+      color: var(--sol-green);
+      border-bottom: var(--border-thick);
+      padding-bottom: 8px;
+      text-shadow: 2px 2px 0px #000;
+    }
+
+    h3 {
+      font-size: 18px;
+      margin: 24px 0 10px;
+      font-weight: 900;
+      color: #fff;
+    }
+
+    p {
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--text-muted);
+      margin: 0 0 16px;
+    }
+
+    .tagline {
+      font-size: 14px;
+      font-weight: 900;
+      color: #000;
+      background: var(--sol-green);
+      display: inline-block;
+      padding: 4px 8px;
+      border: 2px solid #000;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+
+    /* Pills/Badges */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 900;
+      background: #000;
+      border: 2px solid var(--sol-purple);
+      color: #fff;
+      margin-right: 8px;
+      margin-bottom: 8px;
+      box-shadow: 2px 2px 0px 0px var(--sol-green);
+    }
+
+    .pill strong {
+      color: var(--sol-green);
+      margin-right: 6px;
+    }
+
+    /* Blocos de Código e Terminal */
+    code {
+      font-family: var(--mono);
+      font-size: 13px;
+      background: #000;
+      padding: 2px 6px;
+      border: 2px solid #333;
+      color: var(--sol-green);
+      font-weight: bold;
+    }
+
+    pre {
+      background: #000;
+      padding: 16px;
+      overflow-x: auto;
+      border: var(--border-thick);
+      box-shadow: var(--shadow-brutal);
+      margin: 16px 0 24px;
+    }
+
+    pre code {
+      border: none;
+      background: transparent;
+      padding: 0;
+      color: var(--sol-green);
+    }
+
+    /* Grids e Cards */
+    .grid-two {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 20px;
+    }
+
+    .card {
+      background: #111;
+      padding: 20px;
+      border: var(--border-thick);
+      box-shadow: var(--shadow-brutal);
+      transition: transform 0.1s;
+    }
+
+    .card:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 8px 8px 0px 0px var(--sol-purple);
+    }
+
+    .card-muted {
+      background: #0a0a0a;
+      border-color: #333;
+      box-shadow: 4px 4px 0px 0px #333;
+    }
+
+    .card-title {
+      font-size: 16px;
+      margin: 0 0 12px;
+      color: var(--sol-purple);
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .card p {
+      font-size: 14px;
+    }
+
+    .list-inline {
+      font-size: 14px;
+      color: #fff;
+      font-weight: bold;
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .list-inline span::before {
+      content: "► ";
+      color: var(--sol-green);
+    }
+
+    /* Alertas e Callouts */
+    .callout {
+      padding: 16px;
+      background: #000;
+      border: var(--border-thick);
+      border-left-width: 8px;
+      border-left-color: var(--sol-purple);
+      font-size: 14px;
+      font-weight: bold;
+      color: #fff;
+      margin: 24px 0;
+      box-shadow: 4px 4px 0px 0px #000;
+    }
+
+    .callout-strong {
+      border-left-color: var(--danger);
+      background: rgba(255, 51, 102, 0.1);
+      color: #fff;
+    }
+
+    /* Tabelas */
+    .table-meta {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 14px;
+      border: var(--border-thick);
+      background: #000;
+    }
+
+    .table-meta th,
+    .table-meta td {
+      border: 2px solid #333;
+      padding: 10px 12px;
+      text-align: left;
+    }
+
+    .table-meta th {
+      color: var(--sol-purple);
+      font-weight: 900;
+      text-transform: uppercase;
+      background: #111;
+    }
+
+    .table-meta td {
+      color: #fff;
+      font-weight: bold;
+    }
+
+    .label {
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 900;
+      color: #fff;
+      background: #000;
+      display: inline-block;
+      padding: 4px 8px;
+      border: 2px solid var(--sol-green);
+      margin-bottom: 12px;
+    }
+
+    .danger-text {
+      color: var(--danger);
+      font-weight: 900;
+    }
+
+    /* ==========================================================================
+       MEDIA QUERIES (MOBILE RESPONSIVO)
+       ========================================================================== */
+    @media (max-width: 960px) {
+      .mobile-header {
+        display: flex;
+      }
+      
+      body {
+        flex-direction: column;
+        padding-top: 60px; /* Espaço para o header fixo */
+      }
+
+      /* Sidebar escondida por padrão no mobile */
+      .sidebar {
+        position: fixed;
+        left: -320px; /* Fora da tela */
+        width: 300px;
+        height: 100vh;
+        z-index: 1000;
+        box-shadow: 10px 0px 0px 0px rgba(0,0,0,0.5);
+      }
+
+      /* Classe ativada via JavaScript para abrir o menu */
+      .sidebar.open {
+        transform: translateX(320px);
+      }
+
+      .content {
+        padding: 24px 20px;
+        width: 100%;
+      }
+
+      .hero {
+        padding: 20px;
+      }
+
+      .hero-header {
+        flex-direction: column;
+      }
+
+      .hero-meta {
+        width: 100%;
+        align-items: flex-start;
+      }
+
+      .grid-two {
+        grid-template-columns: 1fr;
+      }
+      
+      .table-meta {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="mobile-header">
+    <div class="mobile-logo-text">Shadow Weaver</div>
+    <button class="menu-toggle" id="menu-btn">☰ Menu</button>
+  </header>
+
+  <div class="sidebar-overlay" id="overlay"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="logo">
+      <div class="logo-mark"></div>
+      <div class="logo-text">
+        <div class="logo-text-title">Shadow Weaver</div>
+        <div class="logo-text-sub">Market-neutral yield vault on Solana</div>
+      </div>
+    </div>
+
+    <div class="badge">
+      <span class="badge-dot"></span>
+      Ranger Earn · Build‑a‑Bear Hackathon
+    </div>
+
+    <div class="sidebar-section-title">Documentation</div>
+    <ul class="nav-list">
+      <li><a class="nav-link nav-link-strong" href="#overview" onclick="closeMenu()">Overview</a></li>
+      <li><a class="nav-link" href="#thesis" onclick="closeMenu()">Strategy Thesis</a></li>
+      <li><a class="nav-link" href="#mechanics" onclick="closeMenu()">How It Works in Practice</a></li>
+      <li><a class="nav-link" href="#risk" onclick="closeMenu()">Risk Management</a></li>
+      <li><a class="nav-link" href="#sizing" onclick="closeMenu()">Position Sizing</a></li>
+      <li><a class="nav-link" href="#rebalance" onclick="closeMenu()">Rebalancing Logic</a></li>
+      <li><a class="nav-link" href="#architecture" onclick="closeMenu()">System Architecture</a></li>
+      <li><a class="nav-link" href="#verification" onclick="closeMenu()">On‑Chain Verification</a></li>
+      <li><a class="nav-link" href="#runbook" onclick="closeMenu()">Judge Runbook</a></li>
+      <li><a class="nav-link" href="#repository" onclick="closeMenu()">Repository</a></li>
+    </ul>
+
+    <div class="sidebar-section-title">Status</div>
+    <div class="badge badge-danger">
+      <span class="badge-dot"></span>
+      Devnet deployment · Capital‑protected prototype
+    </div>
+
+    <div class="sidebar-footer">
+      Built for Ranger Earn on Solana Devnet.  
+      Strategy: market‑neutral funding rate arbitrage with on‑chain drawdown guardrails.
+      <br /><br />
+      GitHub: <a href="https://github.com/Vinisilva0010/ranger_drift_vault" target="_blank" rel="noreferrer">ranger_drift_vault</a>
+    </div>
+  </aside>
+
+  <main class="content">
+    <section id="overview" class="hero">
+      <div class="hero-header">
+        <div>
+          <div class="tagline">Documentation · Shadow Weaver Yield Strategy</div>
+          <h1 class="hero-title">Capital‑Protected Funding Arbitrage</h1>
+          <p class="hero-subtitle">
+            Shadow Weaver is a market‑neutral yield vault that captures funding rate premiums on Drift Protocol while enforcing a hard on‑chain loss limit, built for the Ranger Earn ecosystem.
+          </p>
+        </div>
+        <div class="hero-meta">
+          <div>Chain: <strong>Solana Devnet</strong></div>
+          <div>Venue: <strong>Drift Protocol PERPs</strong></div>
+          <div>Style: <strong>Market‑neutral funding capture</strong></div>
+        </div>
+      </div>
+      <p class="hero-highlight">
+        The strategy allows users to deposit USDC into an institutional‑style vault which opens delta‑neutral positions on Drift and harvests funding payments, while a <strong>15% maximum loss</strong> is mathematically enforced at the smart‑contract level.
+      </p>
+    </section>
+
+    <section id="thesis">
+      <h2>Strategy Thesis</h2>
+      <p>
+        Shadow Weaver is built around a simple but powerful thesis: in perpetual futures markets, traders routinely pay funding to express directional conviction, while a neutral counterparty can earn this funding as yield. The vault steps into that neutral role and collects funding premiums without betting on price direction.
+      </p>
+      <p>
+        The strategy focuses on markets where short positions are structurally compensated via positive funding—currently the SOL perpetual market on Drift. By combining a neutral exposure profile with strict drawdown guardrails, the vault aims to generate equity‑like returns from a yield stream that is largely orthogonal to spot price trends.
+      </p>
+
+      <div class="grid-two">
+        <div class="card">
+          <p class="card-title">Core return driver</p>
+          <p>
+            Funding payments on perpetual swaps, not price appreciation, constitute the primary P&L engine. Long‑horizon backtests on live funding data indicate the potential for annualized yields above 100% under recent market conditions, subject to funding and liquidity regimes.
+          </p>
+        </div>
+        <div class="card card-muted">
+          <p class="card-title">Risk philosophy</p>
+          <p>
+            Instead of relying solely on off‑chain bots to stop losses, risk limits are baked into the program logic: the vault expresses <em>how much it can lose</em> in code, then lets the execution layer optimize <em>how much it can earn</em> within that sandbox.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="mechanics">
+      <h2>How It Works in Practice</h2>
+      <h3>Lifecycle of a deposit</h3>
+      <p>
+        When a user deposits USDC into the Shadow Weaver vault, the Solana program locks that capital on‑chain and records the depositor’s share in the vault. The program then issues a cross‑program invocation (CPI) to Drift to open or update an institutional trading account associated with the vault.
+      </p>
+      <p>
+        From the user’s perspective, this is a single action: send USDC to the vault and receive a claim on the strategy’s performance. From the system’s perspective, the deposit expands the vault’s risk capacity and allows larger market‑neutral positions to be deployed on Drift.
+      </p>
+
+      <h3>Execution by the Shadow Weaver bot</h3>
+      <p>
+        An off‑chain TypeScript executor, the Shadow Weaver bot, continuously streams market and funding data from Drift using the Drift SDK and lightweight RPC calls. It monitors funding rates, volatility conditions, and vault utilization to decide when to enter, resize, or close positions.
+      </p>
+      <p>
+        When an attractive opportunity is detected—typically a sustained positive funding environment on SOL perpetuals—the bot simulates a delta‑neutral allocation that fits within the on‑chain risk budget. It then submits trades via the vault’s Drift account so that the vault earns funding while remaining broadly hedged against directional price movements.
+      </p>
+
+      <h3>Redemption</h3>
+      <p>
+        Upon a withdrawal request, the bot unwinds outstanding positions on Drift to realize P&L, then the program settles the vault state and returns the user’s proportional share of USDC. All accounting and loss‑cap checks are enforced inside the Solana program before any funds leave the vault.
+      </p>
+    </section>
+
+    <section id="risk">
+      <h2>Risk Management</h2>
+      <p>
+        Risk is enforced at the smart contract layer and reflected in the execution logic. The primary control is a hard maximum loss constraint, expressed as a percentage of vault equity and encoded directly in the Rust program.
+      </p>
+      <p>
+        If cumulative realized plus unrealized losses on the vault’s Drift positions reach this threshold, the program enters a protective state: further risk‑increasing actions are blocked, the executor is forced to de‑risk, and the vault preserves remaining capital for depositors.
+      </p>
+
+      <div class="grid-two">
+        <div class="card">
+          <p class="label">Hard risk limit</p>
+          <table class="table-meta">
+            <tr>
+              <th>Parameter</th>
+              <th>Value</th>
+              <th>Scope</th>
+            </tr>
+            <tr>
+              <td>Maximum loss</td>
+              <td class="danger-text">15%</td>
+              <td>Vault equity (realized + unrealized)</td>
+            </tr>
+            <tr>
+              <td>Market</td>
+              <td>SOL perpetuals</td>
+              <td>Drift Protocol</td>
+            </tr>
+          </table>
+          <p>
+            This limit is immutable at runtime: it is not configurable by users or bots and can only be changed via a new program deployment. That design choice mirrors institutional risk systems where drawdown budgets are structural, not ad‑hoc.
+          </p>
+        </div>
+        <div class="card card-muted">
+          <p class="label">Operational safeguards</p>
+          <p class="card-title">Infrastructure &amp; connectivity</p>
+          <p>
+            The executor reads funding and market data via a direct, thin integration with the venue’s infrastructure rather than relying exclusively on congested public RPC endpoints. This reduces the likelihood that risk checks fail or stall during high‑stress market conditions.
+          </p>
+        </div>
+      </div>
+
+      <div class="callout callout-strong">
+        The vault is explicitly designed to fail safe: if drift account updates, price feeds, or funding data become unreliable, the system prefers to pause risk‑taking rather than continue trading without accurate inputs.
+      </div>
+    </section>
+
+    <section id="sizing">
+      <h2>Position Sizing</h2>
+      <p>
+        Position sizing is derived from vault equity, the 15% maximum loss constraint, and recent market volatility. The goal is to size positions such that a plausible but severe adverse move remains inside the on‑chain loss budget, while still deploying enough notional to meaningfully monetize funding.
+      </p>
+      <p>
+        In internal simulations, a notional base of 100,000 USDC with the current parameters provides a practical scale: large enough to be relevant on Drift order books, yet small enough that the 15% cap translates to a well‑defined risk window that the strategy must respect at all times.
+      </p>
+
+      <div class="card">
+        <p class="card-title">Sizing constraints (high‑level)</p>
+        <p class="list-inline">
+          <span>Maximum portfolio loss: 15% of equity</span>
+          <span>Capital baseline (simulations): 100k USDC</span>
+          <span>Venue: Drift SOL‑PERP</span>
+        </p>
+        <p>
+          The executor will never intentionally open a position whose projected worst‑case loss under configured scenarios would exceed the remaining loss budget. This turn the on‑chain cap into a live risk budget for the bot.
+        </p>
+      </div>
+    </section>
+
+    <section id="rebalance">
+      <h2>Rebalancing Logic</h2>
+      <p>
+        Rebalancing has two main objectives: keep the portfolio approximately delta‑neutral and ensure that deployed notional remains consistent with the current loss budget and funding environment. The bot periodically re‑evaluates hedge ratios and funding spreads, then adjusts positions accordingly.
+      </p>
+      <p>
+        In practice, that means: closing or reducing positions when funding collapses or turns negative; resizing exposure when volatility changes the maximum tolerable notional; and re‑centering hedges around the current spot level to keep the strategy focused on funding, not direction.
+      </p>
+
+      <div class="card">
+        <p class="card-title">Rebalancing triggers (conceptual)</p>
+        <p class="list-inline">
+          <span>Funding regime changes (e.g., positive → flat/negative)</span>
+          <span>Volatility shocks that tighten the loss budget</span>
+          <span>Material drift from target delta‑neutrality</span>
+        </p>
+        <p>
+          While the exact heuristics live in the off‑chain execution logic, every rebalance is constrained by the same on‑chain invariant: after any adjustment, the vault must still sit within its 15% drawdown envelope.
+        </p>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <h2>System Architecture</h2>
+      <p>
+        The system is split into a deterministic on‑chain risk core and a flexible off‑chain execution engine. This separation allows the program to guarantee capital protection and accounting, while the bot can evolve to incorporate more advanced execution and venue logic over time.
+      </p>
+
+      <div class="grid-two">
+        <div class="card">
+          <p class="card-title">On‑chain (Solana · Anchor · Rust)</p>
+          <p>
+            The Solana program manages vault state, deposits, withdrawals, and loss tracking. It performs CPI calls into Drift to open and maintain the vault’s institutional trading account and enforces all invariants around the 15% loss limit.
+          </p>
+        </div>
+        <div class="card card-muted">
+          <p class="card-title">Off‑chain (TypeScript · Drift SDK)</p>
+          <p>
+            The Shadow Weaver bot runs in Node.js using the Drift SDK and Solana Web3 libraries. It subscribes to market feeds, computes funding‑driven opportunities, enforces position‑sizing rules, and submits trades via the vault’s Drift account.
+          </p>
+        </div>
+      </div>
+
+      <h3>Technology summary</h3>
+      <p class="pill"><strong>Chain</strong> Solana Devnet</p>
+      <p class="pill"><strong>Smart contracts</strong> Rust · Anchor</p>
+      <p class="pill"><strong>Execution</strong> TypeScript · ts-node</p>
+      <p class="pill"><strong>Venue</strong> Drift Protocol v2</p>
+    </section>
+
+    <section id="verification">
+      <h2>On‑Chain Verification</h2>
+      <p>
+        The current deployment targets Solana Devnet. Judges can independently verify the vault, funding flows, and initial capital operations via the following public references.
+      </p>
+
+      <div class="card">
+        <p class="card-title">Devnet deployment</p>
+        <table class="table-meta">
+          <tr>
+            <th>Item</th>
+            <th>Value</th>
+          </tr>
+          <tr>
+            <td>Vault address</td>
+            <td><code>EMZKTYHRTwsfs8LUvQj65aSBdr1wAjhYPftwDaWMiPFg</code></td>
+          </tr>
+          <tr>
+            <td>Vault initialization</td>
+            <td>
+              <a href="https://solscan.io/tx/2Ci1DQmVNgLWfUfHop4nP7K4HTiseRTdtzqtNac8Ks7WxDhNDiqceFytCj185WCSzuhJFt4E5Ce66oa2Rwe3VccN?cluster=devnet" target="_blank" rel="noreferrer">
+                Solscan transaction
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td>Capital deposit</td>
+            <td>
+              <a href="https://solscan.io/tx/5k8nQHCrQK1G1AxiMrwQatWnNzX4wHXf3Lr6amb87fB6r19bqFQzkLPtTLUeB73BD1vWmBfqYZ6qGJxHuGYhR8jo?cluster=devnet" target="_blank" rel="noreferrer">
+                Solscan transaction
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td>Drift account wiring</td>
+            <td>
+              <a href="https://solscan.io/tx/E8iQEVuPiTJURxEaMUUaobqivyo9vbZMRqMdo5xNGfxgLUZAV2cuAiCAhQWxLhiVd1Pcuyo2zRRRqfbkq6MpDK5?cluster=devnet" target="_blank" rel="noreferrer">
+                Solscan transaction
+              </a>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </section>
+
+    <section id="runbook">
+      <h2>Judge Runbook · Reproducing the Strategy</h2>
+      <p>
+        This section summarizes the minimal steps required for a technical judge to clone, deploy, and observe the strategy on Solana Devnet.
+      </p>
+
+      <h3>1. Clone and install</h3>
+      <pre><code># Clone repository
+git clone https://github.com/Vinisilva0010/ranger_drift_vault.git
+cd ranger_drift_vault
+
+# Install Node/TypeScript dependencies
+npm install @solana/web3.js @drift-labs/sdk @coral-xyz/anchor ts-node typescript</code></pre>
+
+      <h3>2. Build and deploy the Anchor program</h3>
+      <pre><code># Compile and deploy the vault program to Devnet
+anchor build
+anchor deploy</code></pre>
+
+      <h3>3. Initialize Devnet vault infrastructure</h3>
+      <pre><code>ANCHOR_PROVIDER_URL="https://api.devnet.solana.com" \
+ANCHOR_WALLET=~/.config/solana/id.json \
+npx ts-node scripts/initialize_devnet.ts
+
+ANCHOR_PROVIDER_URL="https://api.devnet.solana.com" \
+ANCHOR_WALLET=~/.config/solana/id.json \
+npx ts-node scripts/open_drift_account.ts
+
+ANCHOR_PROVIDER_URL="https://api.devnet.solana.com" \
+ANCHOR_WALLET=~/.config/solana/id.json \
+npx ts-node scripts/deposit_into_drift.ts</code></pre>
+
+      <h3>4. Run the Shadow Weaver executor</h3>
+      <pre><code># Start the delta-neutral funding arbitrage bot
+npx ts-node bot/shadow_weaver.ts</code></pre>
+
+      <p>
+        With this process complete, the judge can observe logs, P&L evolution, and funding‑driven trades directly in the terminal and validate corresponding state transitions on Solana and Drift.
+      </p>
+    </section>
+
+    <section id="repository">
+      <h2>Repository</h2>
+      <p>
+        Full source code, including the Anchor program and the Shadow Weaver executor, is available on GitHub:
+      </p>
+      <p>
+        <a href="https://github.com/Vinisilva0010/ranger_drift_vault" target="_blank" rel="noreferrer">
+          https://github.com/Vinisilva0010/ranger_drift_vault
+        </a>
+      </p>
+    </section>
+  </main>
+
+  <script>
+    const menuBtn = document.getElementById('menu-btn');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+
+    function toggleMenu() {
+      sidebar.classList.toggle('open');
+      overlay.classList.toggle('active');
+    }
+
+    function closeMenu() {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('active');
+    }
+
+    menuBtn.addEventListener('click', toggleMenu);
+    overlay.addEventListener('click', closeMenu);
+  </script>
+</body>
+</html>
